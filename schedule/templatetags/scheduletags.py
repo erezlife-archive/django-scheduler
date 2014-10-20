@@ -183,7 +183,7 @@ register.tag('get_or_create_calendar', do_get_or_create_calendar_for_object)
 
 @register.simple_tag
 @register.filter(needs_autoescape=True)
-def querystring_for_date(date, num=6, autoescape=None):
+def querystring_for_date(date, num=6, autoescape=False):
     if autoescape:
         esc = conditional_escape
     else:
@@ -277,9 +277,23 @@ def _cook_occurrences(period, occs, width, height):
         w = int(width / (o.max))
         o.width = w - 2
         o.left = w * o.level
-        o.top = int(height * (float((o.real_start - period.start).seconds) / (period.end - period.start).seconds))
-        o.height = int(height * (float((o.real_end - o.real_start).seconds) / (period.end - period.start).seconds))
-        o.height = min(o.height, height - o.top) # trim what extends beyond the area
+        range = (period.end - period.start).seconds
+        if (range == 0):
+            o.top = int(height *
+                        (float((o.real_start - period.start).seconds) /
+                         (24*60*60)))
+            o.height = int(height *
+                           (float((o.real_end - o.real_start).seconds) /
+                            (24*60*60)))
+        else:
+            o.top = int(height *
+                        (float((o.real_start - period.start).seconds) /
+                         (period.end - period.start).seconds))
+            o.height = int(height *
+                           (float((o.real_end - o.real_start).seconds) /
+                            (period.end - period.start).seconds))
+        # trim what extends beyond the area
+        o.height = min(o.height, height - o.top)
     return occs
 
 
@@ -294,7 +308,10 @@ def _cook_slots(period, increment, width, height):
         height - height of the table (px)
     """
     tdiff = datetime.timedelta(minutes=increment)
-    num = (period.end - period.start).seconds / tdiff.seconds
+    if (period.end - period.start).seconds == 0:
+        num = 24  # hours in day
+    else:
+        num = (period.end - period.start).seconds / tdiff.seconds
     s = period.start
     slots = []
     for i in range(num):
