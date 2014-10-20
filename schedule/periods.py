@@ -392,3 +392,52 @@ class Day(Period):
 
     def current_week(self):
         return Week(self.events, self.start, tzinfo=self.tzinfo)
+
+
+class DayTimezoneAware(Day):
+    def _get_day_range(self, date):
+        if isinstance(date, datetime.datetime):
+            date = date.date()
+
+        naive_start = datetime.datetime.combine(date, datetime.time.min)
+        naive_end = datetime.datetime.combine(date + datetime.timedelta(days=1), datetime.time.min)
+        if self.tzinfo is not None:
+            start = timezone.make_aware(naive_start, timezone.get_current_timezone())
+            end = timezone.make_aware(naive_end, timezone.get_current_timezone())
+        else:
+            start = naive_start
+            end = naive_end
+
+        return start, end
+
+
+class WeekTimezoneAware(Week):
+    def get_days(self):
+        return self.get_periods(DayTimezoneAware)
+
+    def _get_week_range(self, week):
+        if isinstance(week, datetime.datetime):
+            week = week.date()
+        # Adjust the start datetime to midnight of the week datetime
+        naive_start = datetime.datetime.combine(week, datetime.time.min)
+        # Adjust the start datetime to Monday or Sunday of the current week
+        if FIRST_DAY_OF_WEEK == 1:
+            # The week begins on Monday
+            sub_days = naive_start.isoweekday() - 1
+        else:
+            # The week begins on Sunday
+            sub_days = naive_start.isoweekday()
+            if sub_days == 7:
+                sub_days = 0
+        if sub_days > 0:
+            naive_start = naive_start - datetime.timedelta(days=sub_days)
+        naive_end = naive_start + datetime.timedelta(days=6)
+
+        if self.tzinfo is not None:
+            start = timezone.make_aware(naive_start, timezone.get_current_timezone())
+            end = timezone.make_aware(naive_end, timezone.get_current_timezone())
+        else:
+            start = naive_start
+            end = naive_end
+
+        return start, end
