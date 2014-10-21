@@ -293,7 +293,7 @@ class Week(Period):
     prev = prev_week
 
     def next_week(self):
-        return Week(self.events, self.end, tzinfo=self.tzinfo)
+        return Week(self.events, self.start + datetime.timedelta(days=7), tzinfo=self.tzinfo)
     next = next_week
 
     def current_month(self):
