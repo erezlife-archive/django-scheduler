@@ -10,6 +10,7 @@ from schedule.conf.settings import FIRST_DAY_OF_WEEK, SHOW_CANCELLED_OCCURRENCES
 from schedule.models import Occurrence
 from django.utils import timezone
 
+
 weekday_names = []
 weekday_abbrs = []
 if FIRST_DAY_OF_WEEK == 1:
@@ -34,28 +35,14 @@ class Period(object):
     def __init__(self, events, start, end, parent_persisted_occurrences=None,
                  occurrence_pool=None, tzinfo=pytz.utc):
 
-        self.utc_start = self._normalize_timezone_to_utc(start, tzinfo)
-
-        self.utc_end = self._normalize_timezone_to_utc(end, tzinfo)
-
+        self.utc_start = start
+        self.utc_end = end
         self.events = events
-        self.tzinfo = self._get_tzinfo(tzinfo)
+        self.tzinfo = timezone.get_current_timezone()
         self.occurrence_pool = occurrence_pool
         if parent_persisted_occurrences is not None:
             self._persisted_occurrences = parent_persisted_occurrences
 
-    def _normalize_timezone_to_utc(self, point_in_time, tzinfo):
-        if point_in_time.tzinfo is not None:
-            return point_in_time.astimezone(pytz.utc)
-        if tzinfo is not None:
-            return tzinfo.localize(point_in_time).astimezone(pytz.utc)
-        if settings.USE_TZ:
-            return pytz.utc.localize(point_in_time)
-        else:
-            if timezone.is_aware(point_in_time):
-                return timezone.make_naive(point_in_time, pytz.utc)
-            else:
-                return point_in_time
 
     def __eq__(self, period):
         return self.utc_start == period.utc_start and self.utc_end == period.utc_end and self.events == period.events
@@ -64,7 +51,7 @@ class Period(object):
         return self.utc_start != period.utc_start or self.utc_end != period.utc_end or self.events != period.events
 
     def _get_tzinfo(self, tzinfo):
-        return tzinfo if settings.USE_TZ else None
+        return timezone.get_current_timezone()
 
     def _get_sorted_occurrences(self):
         occurrences = []
@@ -96,7 +83,7 @@ class Period(object):
     def classify_occurrence(self, occurrence):
         if occurrence.cancelled and not SHOW_CANCELLED_OCCURRENCES:
             return
-        if occurrence.start > self.end or occurrence.end < self.start:
+        if occurrence.start >= self.end or occurrence.end < self.start:
             return None
         started = False
         ended = False
@@ -117,6 +104,8 @@ class Period(object):
     def get_occurrence_partials(self):
         occurrence_dicts = []
         for occurrence in self.occurrences:
+            occurrence.start = get_server_timezone(occurrence.start)
+            occurrence.end = get_server_timezone(occurrence.end)
             occurrence = self.classify_occurrence(occurrence)
             if occurrence:
                 occurrence_dicts.append(occurrence)
@@ -135,13 +124,13 @@ class Period(object):
 
     def create_sub_period(self, cls, start=None, tzinfo=None):
         if tzinfo is None:
-            tzinfo = self.tzinfo
+            tzinfo = timezone.get_current_timezone()
         start = start or self.start
         return cls(self.events, start, self.get_persisted_occurrences(), self.occurrences, tzinfo)
 
     def get_periods(self, cls, tzinfo=None):
         if tzinfo is None:
-            tzinfo = self.tzinfo
+            tzinfo = timezone.get_current_timezone()
         period = self.create_sub_period(cls)
         while period.start < self.end:
             yield self.create_sub_period(cls, period.start, tzinfo)
@@ -149,24 +138,20 @@ class Period(object):
 
     @property
     def start(self):
-        if self.tzinfo is not None:
-            return self.utc_start.astimezone(self.tzinfo)
-        return self.utc_start.replace(tzinfo=None)
+        return self.utc_start
 
     @property
     def end(self):
-        if self.tzinfo is not None:
-            return self.utc_end.astimezone(self.tzinfo)
-        return self.utc_end.replace(tzinfo=None)
+        return self.utc_end
 
 
 class Year(Period):
     def __init__(self, events, date=None, parent_persisted_occurrences=None, tzinfo=pytz.utc):
-        self.tzinfo = self._get_tzinfo(tzinfo)
+        self.tzinfo = timezone.get_current_timezone()
         if date is None:
             date = timezone.now()
         start, end = self._get_year_range(date)
-        super(Year, self).__init__(events, start, end, parent_persisted_occurrences, tzinfo=tzinfo)
+        super(Year, self).__init__(events, start, end, parent_persisted_occurrences, tzinfo=self.tzinfo)
 
     def get_months(self):
         return self.get_periods(Month)
@@ -181,17 +166,12 @@ class Year(Period):
     prev = prev_year
 
     def _get_year_range(self, year):
-        #If tzinfo is not none get the local start of the year and convert it to utc.
+        # If tzinfo is not none get the local start of the year and convert it to utc.
         naive_start = datetime.datetime(year.year, datetime.datetime.min.month, datetime.datetime.min.day)
         naive_end = datetime.datetime(year.year + 1, datetime.datetime.min.month, datetime.datetime.min.day)
 
-        start = naive_start
-        end = naive_end
-        if self.tzinfo is not None:
-            local_start = self.tzinfo.localize(naive_start)
-            local_end = self.tzinfo.localize(naive_end)
-            start = local_start.astimezone(pytz.utc)
-            end = local_end.astimezone(pytz.utc)
+        start = get_server_timezone(naive_start)
+        end = get_server_timezone(naive_end)
 
         return start, end
 
@@ -206,12 +186,12 @@ class Month(Period):
     """
     def __init__(self, events, date=None, parent_persisted_occurrences=None,
                  occurrence_pool=None, tzinfo=pytz.utc):
-        self.tzinfo = self._get_tzinfo(tzinfo)
+        self.tzinfo = timezone.get_current_timezone()
         if date is None:
             date = timezone.now()
         start, end = self._get_month_range(date)
         super(Month, self).__init__(events, start, end,
-                                    parent_persisted_occurrences, occurrence_pool, tzinfo=tzinfo)
+                                    parent_persisted_occurrences, occurrence_pool, tzinfo=self.tzinfo)
 
     def get_weeks(self):
         return self.get_periods(Week)
@@ -248,20 +228,15 @@ class Month(Period):
     def _get_month_range(self, month):
         year = month.year
         month = month.month
-        #If tzinfo is not none get the local start of the month and convert it to utc.
+        # If tzinfo is not none get the local start of the month and convert it to utc.
         naive_start = datetime.datetime.min.replace(year=year, month=month)
         if month == 12:
             naive_end = datetime.datetime.min.replace(month=1, year=year + 1, day=1)
         else:
             naive_end = datetime.datetime.min.replace(month=month + 1, year=year, day=1)
 
-        start = naive_start
-        end = naive_end
-        if self.tzinfo is not None:
-            local_start = self.tzinfo.localize(naive_start)
-            local_end = self.tzinfo.localize(naive_end)
-            start = local_start.astimezone(pytz.utc)
-            end = local_end.astimezone(pytz.utc)
+        start = get_server_timezone(naive_start)
+        end = get_server_timezone(naive_end)
 
         return start, end
 
@@ -281,12 +256,12 @@ class Week(Period):
     """
     def __init__(self, events, date=None, parent_persisted_occurrences=None,
                  occurrence_pool=None, tzinfo=pytz.utc):
-        self.tzinfo = self._get_tzinfo(tzinfo)
+        self.tzinfo = timezone.get_current_timezone()
         if date is None:
             date = timezone.now()
         start, end = self._get_week_range(date)
         super(Week, self).__init__(events, start, end,
-                                   parent_persisted_occurrences, occurrence_pool, tzinfo=tzinfo)
+                                   parent_persisted_occurrences, occurrence_pool, tzinfo=self.tzinfo)
 
     def prev_week(self):
         return Week(self.events, self.start - datetime.timedelta(days=7), tzinfo=self.tzinfo)
@@ -323,14 +298,8 @@ class Week(Period):
             naive_start = naive_start - datetime.timedelta(days=sub_days)
         naive_end = naive_start + datetime.timedelta(days=7)
 
-        if self.tzinfo is not None:
-            local_start = self.tzinfo.localize(naive_start)
-            local_end = self.tzinfo.localize(naive_end)
-            start = local_start.astimezone(pytz.utc)
-            end = local_end.astimezone(pytz.utc)
-        else:
-            start = naive_start
-            end = naive_end
+        start = get_server_timezone(naive_start)
+        end = get_server_timezone(naive_end)
 
         return start, end
 
@@ -345,12 +314,12 @@ class Week(Period):
 class Day(Period):
     def __init__(self, events, date=None, parent_persisted_occurrences=None,
                  occurrence_pool=None, tzinfo=pytz.utc):
-        self.tzinfo = self._get_tzinfo(tzinfo)
+        self.tzinfo = timezone.get_current_timezone()
         if date is None:
             date = timezone.now()
         start, end = self._get_day_range(date)
         super(Day, self).__init__(events, start, end,
-                                  parent_persisted_occurrences, occurrence_pool, tzinfo=tzinfo)
+                                  parent_persisted_occurrences, occurrence_pool, tzinfo=self.tzinfo)
 
     def _get_day_range(self, date):
         if isinstance(date, datetime.datetime):
@@ -358,14 +327,8 @@ class Day(Period):
 
         naive_start = datetime.datetime.combine(date, datetime.time.min)
         naive_end = datetime.datetime.combine(date + datetime.timedelta(days=1), datetime.time.min)
-        if self.tzinfo is not None:
-            local_start = self.tzinfo.localize(naive_start)
-            local_end = self.tzinfo.localize(naive_end)
-            start = local_start.astimezone(pytz.utc)
-            end = local_end.astimezone(pytz.utc)
-        else:
-            start = naive_start
-            end = naive_end
+        start = get_server_timezone(naive_start)
+        end = get_server_timezone(naive_end)
 
         return start, end
 
