@@ -2,7 +2,6 @@ import pytz
 import datetime
 import calendar as standardlib_calendar
 
-from django.conf import settings
 from django.template.defaultfilters import date as date_filter
 from django.utils.translation import ugettext
 from django.utils.dates import WEEKDAYS, WEEKDAYS_ABBR
@@ -355,3 +354,9 @@ class Day(Period):
 
     def current_week(self):
         return Week(self.events, self.start, tzinfo=self.tzinfo)
+
+
+def get_server_timezone(date):
+    if timezone.is_aware(date):
+        date = timezone.make_naive(date, timezone.get_current_timezone())
+    return timezone.make_aware(date, timezone.get_current_timezone())
