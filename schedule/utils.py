@@ -2,8 +2,7 @@ from functools import wraps
 import pytz
 import heapq
 from annoying.functions import get_object_or_None
-from django.http import HttpResponseRedirect
-from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 from schedule.conf.settings import CHECK_EVENT_PERM_FUNC, CHECK_CALENDAR_PERM_FUNC
 
@@ -94,7 +93,7 @@ def check_event_permissions(function):
         event = get_object_or_None(Event, pk=kwargs.get('event_id', None))
         allowed = CHECK_EVENT_PERM_FUNC(event, user)
         if not allowed:
-            return HttpResponseRedirect(settings.LOGIN_URL)
+            raise PermissionDenied
 
         # check calendar permissions
         calendar = None
@@ -104,7 +103,7 @@ def check_event_permissions(function):
             calendar = Calendar.objects.get(slug=kwargs['calendar_slug'])
         allowed = CHECK_CALENDAR_PERM_FUNC(calendar, user)
         if not allowed:
-            return HttpResponseRedirect(settings.LOGIN_URL)
+            raise PermissionDenied
 
         # all checks passed
         return function(request, *args, **kwargs)
