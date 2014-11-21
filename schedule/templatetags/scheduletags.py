@@ -7,7 +7,7 @@ from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 from schedule.conf.settings import CHECK_EVENT_PERM_FUNC, CHECK_CALENDAR_PERM_FUNC
 from schedule.models import Calendar
-from schedule.periods import weekday_names, weekday_abbrs
+from schedule.periods import weekday_names, weekday_abbrs, get_server_timezone
 
 register = template.Library()
 
@@ -61,6 +61,9 @@ def daily_table(context, day, width, width_slot, height, start=8, end=20, increm
     width_occ = width - width_slot
     day_part = day.get_time_slot(day.start + datetime.timedelta(hours=start), day.start + datetime.timedelta(hours=end))
     occurrences = day_part.get_occurrences()
+    for occ in occurrences:
+        occ.start = get_server_timezone(occ.start)
+        occ.end = get_server_timezone(occ.end)
     occurrences = _cook_occurrences(day_part, occurrences, width_occ, height)
     # get slots to display on the left
     slots = _cook_slots(day_part, increment, width, height)
