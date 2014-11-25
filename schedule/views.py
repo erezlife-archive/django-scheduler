@@ -97,6 +97,7 @@ def calendar_by_periods(request, calendar_slug, periods=None, template_name="sch
                 period(event_list, date, None, None, local_timezone)
 
     return render_to_response(template_name, {
+        'title': 'Calendar',
         'date': date,
         'periods': period_objects,
         'calendar': calendar,
