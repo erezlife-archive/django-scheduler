@@ -113,6 +113,8 @@ class Event(models.Model):
     def get_occurrence(self, date):
         if timezone.is_naive(date) and django_settings.USE_TZ:
             date = timezone.make_aware(date, timezone.get_current_timezone())
+        start = timezone.make_naive(self.start, timezone.get_current_timezone())
+        self.start = timezone.make_aware(start, timezone.get_current_timezone())
         rule = self.get_rrule_object()
         if rule:
             next_occurrence = rule.after(date, inc=True)
