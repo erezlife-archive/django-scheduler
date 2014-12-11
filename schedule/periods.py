@@ -117,8 +117,12 @@ class Period(object):
         return any(self.classify_occurrence(o) for o in self.occurrences)
 
     def get_time_slot(self, start, end):
-        if start >= self.start and end <= self.end:
-            return Period(self.events, start, end)
+        if self.end.dst():
+            if start >= self.start and end.replace(tzinfo=None) <= self.end.replace(tzinfo=None):
+                return Period(self.events, start, end)
+        else:
+            if start >= self.start and end <= self.end:
+                return Period(self.events, start, end)
         return None
 
     def create_sub_period(self, cls, start=None, tzinfo=None):
