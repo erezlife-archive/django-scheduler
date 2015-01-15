@@ -281,11 +281,19 @@ def _cook_occurrences(period, occs, width, height):
         o.left = w * o.level
         diff_in_seconds = (period.end - period.start).seconds
         if diff_in_seconds:
-            o.top = int(height * ((o.real_start - period.start).seconds / diff_in_seconds))
-            o.height = int(height * ((o.real_end - o.real_start).seconds / diff_in_seconds))
+            o.top = int(height *
+                        (float((o.real_start - period.start).seconds) /
+                         diff_in_seconds))
+            o.height = int(height *
+                           (float((o.real_end - o.real_start).seconds) /
+                            diff_in_seconds))
         else:
-            o.top = int(height * ((o.real_start - period.start).seconds / (24*60*60)))
-            o.height = int(height * ((o.real_end - o.real_start).seconds / (24*60*60)))
+            o.top = int(height *
+                        (float((o.real_start - period.start).seconds) /
+                         (24*60*60)))
+            o.height = int(height *
+                           (float((o.real_end - o.real_start).seconds) /
+                            (24*60*60)))
         o.height = min(o.height, height - o.top)  # trim what extends beyond the area
     return display_occs
 
