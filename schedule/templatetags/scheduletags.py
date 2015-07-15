@@ -269,7 +269,15 @@ def _cook_occurrences(period, occs, width, height):
     # calculate position and dimensions
     for o in display_occs:
         # number of overlapping occurrences
-        o.max = len([n for n in occs if not(n.end <= o.start or n.start >= o.end)])
+        for n in occs:
+            # don't count the current occurrence, or it will 'overlap' with itself
+            if n == o:
+                continue
+            if not(n.end <= o.start or n.start >= o.end):
+                o.max += 1
+        if o.max == 0:
+            o.max = 1
+
     for o in display_occs:
         o.cls = o.data['class']
         o.real_start = max(o.start, period.start)
