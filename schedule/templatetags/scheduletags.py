@@ -295,6 +295,8 @@ def _cook_occurrences(period, occs, width, height):
                            (float((o.real_end - o.real_start).seconds) /
                             (24*60*60)))
         o.height = min(o.height, height - o.top)  # trim what extends beyond the area
+        if o.height == 0:
+            o.height == height - o.top
     return display_occs
 
 
