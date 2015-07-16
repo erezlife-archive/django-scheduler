@@ -137,7 +137,9 @@ def do_get_calendar_for_object(parser, token):
     elif len(contents) == 5:
         tag_name, content_object, distinction, _, context_var = token.split_contents()
     else:
-        raise template.TemplateSyntaxError, "%r tag follows form %r <content_object> as <context_var>" % (token.contents.split()[0], token.contents.split()[0])
+        raise template.TemplateSyntaxError, \
+            "%r tag follows form %r <content_object> as <context_var>" \
+            % (token.contents.split()[0], token.contents.split()[0])
     return CalendarNode(content_object, distinction, context_var)
 
 
@@ -149,7 +151,10 @@ class CreateCalendarNode(template.Node):
         self.name = name
 
     def render(self, context):
-        context[self.context_var] = Calendar.objects.get_or_create_calendar_for_object(self.content_object.resolve(context), self.distinction, name=self.name)
+        context[self.context_var] = \
+            Calendar.objects.get_or_create_calendar_for_object(
+                self.content_object.resolve(context),
+                self.distinction, name=self.name)
         return ''
 
 
@@ -173,9 +178,15 @@ def do_get_or_create_calendar_for_object(parser, token):
             as_index = contents.index('as')
             context_var = contents[as_index + 1]
         else:
-            raise template.TemplateSyntaxError, "%r tag requires an a context variable: %r <content_object> [named <calendar name>] [by <distinction>] as <context_var>" % (token.split_contents()[0], token.split_contents()[0])
+            raise template.TemplateSyntaxError, \
+                "%r tag requires an a context variable: %r <content_object> " \
+                "[named <calendar name>] [by <distinction>] as <context_var>" \
+                % (token.split_contents()[0], token.split_contents()[0])
     else:
-        raise template.TemplateSyntaxError, "%r tag follows form %r <content_object> [named <calendar name>] [by <distinction>] as <context_var>" % (token.split_contents()[0], token.split_contents()[0])
+        raise template.TemplateSyntaxError, \
+            "%r tag follows form %r <content_object> [named <calendar name>] " \
+            "[by <distinction>] as <context_var>" \
+            % (token.split_contents()[0], token.split_contents()[0])
     return CreateCalendarNode(obj, distinction, context_var, name)
 
 register.tag('get_calendar', do_get_calendar_for_object)
@@ -266,25 +277,16 @@ def _cook_occurrences(period, occs, width, height):
                 k = k + 1
                 last[k] = o
                 o.level = k
+
     # calculate position and dimensions
-    for o in display_occs:
-        # number of overlapping occurrences
-        for n in occs:
-            # don't count the current occurrence, or it will 'overlap' with itself
-            if n == o:
-                continue
-            if not(n.end <= o.start or n.start >= o.end):
-                o.max += 1
-        if o.max == 0:
-            o.max = 1
+    cols = _get_number_of_columns(display_occs)
 
     for o in display_occs:
         o.cls = o.data['class']
         o.real_start = max(o.start, period.start)
         o.real_end = min(o.end, period.end)
         # number of "columns" is a minimum number of overlaps for each overlapping group
-        o.max = max([n.max for n in display_occs if not(n.end <= o.start or n.start >= o.end)] or [1])
-        w = int(width / (o.max))
+        w = int(width / (cols))
         o.width = w - 2
         o.left = w * o.level
         diff_in_seconds = (period.end - period.start).seconds
@@ -306,6 +308,20 @@ def _cook_occurrences(period, occs, width, height):
         if o.height == 0:
             o.height == height - o.top
     return display_occs
+
+
+def _get_number_of_columns(occurrences):
+    cols = 1
+    occ_len = len(occurrences)
+    if occ_len > 1:
+        for idx, curr_val in enumerate(occurrences):
+            for i in range(idx + 1, occ_len):
+                next_val = occurrences[i]
+                if not(next_val.end <= curr_val.start or
+                       next_val.start >= curr_val.end):
+                    cols += 1
+                    break
+    return cols
 
 
 def _cook_slots(period, increment, width, height):
