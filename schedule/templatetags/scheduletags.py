@@ -311,17 +311,18 @@ def _cook_occurrences(period, occs, width, height):
 
 
 def _get_number_of_columns(occurrences):
-    cols = 1
     occ_len = len(occurrences)
     if occ_len > 1:
+        dict = {x: 1 for x, v in enumerate(occurrences)}
         for idx, curr_val in enumerate(occurrences):
             for i in range(idx + 1, occ_len):
                 next_val = occurrences[i]
                 if not(next_val.end <= curr_val.start or
                        next_val.start >= curr_val.end):
-                    cols += 1
-                    break
-    return cols
+                    dict[i] += 1
+        key = max(dict, key=dict.get)
+        return dict[key]
+    return 1
 
 
 def _cook_slots(period, increment, width, height):
