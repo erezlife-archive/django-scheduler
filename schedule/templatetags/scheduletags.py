@@ -313,15 +313,15 @@ def _cook_occurrences(period, occs, width, height):
 def _get_number_of_columns(occurrences):
     occ_len = len(occurrences)
     if occ_len > 1:
-        dict = {x: 1 for x, v in enumerate(occurrences)}
+        slot_dict = dict((x, 1) for x, v in enumerate(occurrences))
         for idx, curr_val in enumerate(occurrences):
             for i in range(idx + 1, occ_len):
                 next_val = occurrences[i]
                 if not(next_val.end <= curr_val.start or
                        next_val.start >= curr_val.end):
-                    dict[i] += 1
-        key = max(dict, key=dict.get)
-        return dict[key]
+                    slot_dict[i] += 1
+        key = max(slot_dict, key=slot_dict.get)
+        return slot_dict[key]
     return 1
 
 
