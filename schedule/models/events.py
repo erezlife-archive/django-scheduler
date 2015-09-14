@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from django.conf import settings as django_settings
 import pytz
+from datetime import timedelta
 from dateutil import rrule
 
 from django.contrib.contenttypes import generic
@@ -130,6 +131,7 @@ class Event(models.Model):
         """
         returns a list of occurrences for this event from start to end.
         """
+        start = start - timedelta(days=1)
         difference = (self.end - self.start)
         if self.rule is not None:
             occurrences = []
